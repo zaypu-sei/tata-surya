@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simulasi Tata Surya</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: sans-serif;
+      color: white;
+    }
+    canvas {
+      display: block;
+    }
+    #infoBox {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.8);
+      padding: 12px;
+      border-radius: 10px;
+      max-width: 250px;
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+    #infoBox img {
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 8px;
+    }
+    #footer {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+    }
+    #controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    button {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid white;
+      color: white;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+<canvas id="solarCanvas"></canvas>
+<div id="infoBox"></div>
+<div id="controls">
+  <button id="toggleMotion">Pause Orbit</button>
+  <button id="toggleSpeed">Kecepatan Cahaya: OFF</button>
+  <button id="toggleSeason">Musim Panas</button>
+</div>
+<div id="footer">Simulasi Gerakan Planet di Tata Surya By : Kelompok 3</div>
+
+<!-- Musik latar -->
+<audio id="bgMusic" loop autoplay>
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_3c19e7868d.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+const canvas = document.getElementById('solarCanvas');
+const ctx = canvas.getContext('2d');
+const infoBox = document.getElementById('infoBox');
+const music = document.getElementById('bgMusic');
+const toggleBtn = document.getElementById('toggleMotion');
+const speedBtn = document.getElementById('toggleSpeed');
+const seasonBtn = document.getElementById('toggleSeason');
+
+music.volume = 1.0;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+const stars = Array.from({length: 200}, () => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * canvas.height,
+  radius: Math.random() * 1.5,
+  alpha: Math.random()
+}));
+
+const sun = {
+  x: canvas.width / 2,
+  y: canvas.height / 2 - 80,
+  radius: 20,
+  color: 'yellow'
+};
+
+const planets = [
+  { name: "Merkurius", desc: "Planet terkecil dan terdekat dari Matahari.", radius: 5, distance: 40, speed: 0.02, angle: 0, rot: 0, rotSpeed: 0.05, color: 'gray', image: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg" },
+  { name: "Venus", desc: "Planet kedua dari Matahari, memiliki atmosfer tebal.", radius: 6, distance: 70, speed: 0.015, angle: 0, rot: 0, rotSpeed: 0.03, color: 'orange', image: "https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg" },
+  { name: "Bumi", desc: "Satu-satunya planet yang diketahui memiliki kehidupan.", radius: 7, distance: 100, speed: 0.01, angle: 0, rot: 0, rotSpeed: 0.1, color: 'blue', image: "https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg" },
+  { name: "Mars", desc: "Planet merah yang memiliki kemungkinan kehidupan masa lalu.", radius: 6, distance: 130, speed: 0.008, angle: 0, rot: 0, rotSpeed: 0.07, color: 'red', image: "https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg" },
+  { name: "Jupiter", desc: "Planet terbesar di Tata Surya.", radius: 10, distance: 180, speed: 0.005, angle: 0, rot: 0, rotSpeed: 0.03, color: 'orange', image: "https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg" },
+  { name: "Saturnus", desc: "Dikenal dengan cincin es yang indah.", radius: 9, distance: 230, speed: 0.004, angle: 0, rot: 0, rotSpeed: 0.025, color: 'beige', image: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg" },
+  { name: "Uranus", desc: "Planet es raksasa yang miring pada sisinya.", radius: 8, distance: 270, speed: 0.003, angle: 0, rot: 0, rotSpeed: 0.02, color: 'lightblue', image: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg" },
+  { name: "Neptunus", desc: "Planet paling jauh dengan angin tercepat.", radius: 8, distance: 310, speed: 0.002, angle: 0, rot: 0, rotSpeed: 0.02, color: 'blue', image: "https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg" }
+];
+
+let motionPaused = false;
+let lightSpeed = false;
+let seasonMode = false;
+let seasonType = 'summer';
+
+toggleBtn.onclick = () => {
+  motionPaused = !motionPaused;
+  toggleBtn.textContent = motionPaused ? "Lanjutkan Orbit" : "Pause Orbit";
+};
+
+speedBtn.onclick = () => {
+  lightSpeed = !lightSpeed;
+  speedBtn.textContent = "Kecepatan Cahaya: " + (lightSpeed ? "ON" : "OFF");
+};
+
+seasonBtn.onclick = () => {
+  motionPaused = true;
+  seasonMode = true;
+  let angle = (seasonType === 'summer') ? 0 : Math.PI;
+  const earth = planets.find(p => p.name === 'Bumi');
+  const offset = angle - earth.angle;
+  planets.forEach(p => p.angle += offset);
+  seasonBtn.textContent = (seasonType === 'summer') ? "Musim Dingin" : "Musim Panas";
+  seasonType = (seasonType === 'summer') ? 'winter' : 'summer';
+};
+
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  for (let planet of planets) {
+    const x = sun.x + planet.distance * Math.cos(planet.angle);
+    const y = sun.y + planet.distance * Math.sin(planet.angle);
+    const dx = mouseX - x;
+    const dy = mouseY - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < planet.radius + 5) {
+      infoBox.style.display = 'block';
+      infoBox.innerHTML = `<strong>${planet.name}</strong><br>${planet.desc}<img src="${planet.image}" alt="${planet.name}">`;
+      return;
+    }
+  }
+  infoBox.style.display = 'none';
+});
+
+function drawStars() {
+  stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+    ctx.fill();
+  });
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawStars();
+  ctx.beginPath();
+  ctx.arc(sun.x, sun.y, sun.radius, 0, Math.PI * 2);
+  ctx.fillStyle = sun.color;
+  ctx.fill();
+  planets.forEach(planet => {
+    if (!motionPaused) {
+      planet.angle += lightSpeed ? planet.speed * 10 : planet.speed;
+      planet.rot += planet.rotSpeed;
+    }
+    const x = sun.x + planet.distance * Math.cos(planet.angle);
+    const y = sun.y + planet.distance * Math.sin(planet.angle);
+    ctx.beginPath();
+    ctx.arc(sun.x, sun.y, planet.distance, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(planet.rot);
+    ctx.beginPath();
+    ctx.arc(0, 0, planet.radius, 0, Math.PI * 2);
+    ctx.fillStyle = planet.color;
+    ctx.fill();
+    ctx.restore();
+  });
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
